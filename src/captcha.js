@@ -3,6 +3,7 @@ import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { compactSnapshot } from "./llm.js";
+import { waitForCaptcha } from "./captcha-wait.js";
 
 const DEFAULT_DRAG_STEPS = 20;
 const POST_ACTION_SETTLE_MS = 3000;
@@ -93,6 +94,10 @@ export function createCaptcha(page, options = {}) {
 
   return {
     page,
+
+    waitFor(opts) {
+      return waitForCaptcha(page, opts);
+    },
 
     async click(bounds, opts = {}) {
       const center = centerOf(bounds);

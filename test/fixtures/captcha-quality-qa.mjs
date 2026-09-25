@@ -81,6 +81,37 @@ export async function runScenario(scenario, evidenceDir) {
       const eventsBefore = await page.evaluate(() => window.events.length);
       await assert.rejects(captcha.click(box, { point: { x: box.x - 1, y: box.y }, settleMs: 0 }));
       assert.equal(await page.evaluate(() => window.events.length), eventsBefore);
+    } else if (scenario === "completion") {
+      await arm(page, "change");
+      await captcha.click(box, { point, approachSteps: 12, settleMs: 0 });
+      result.inputReceipt = await page.evaluate(() => window.nextInput);
+      assert.equal(result.inputReceipt.trusted, true);
+      assert.equal(await page.evaluate(() => document.querySelector("#application-status").dataset.accepted), "false");
+      assert.equal(typeof captcha.waitFor, "function", "captcha must support explicit completion waiting");
+      let enter;
+      let release;
+      const entered = new Promise(resolve => { enter = resolve; });
+      const gate = new Promise(resolve => { release = resolve; });
+      let settled = false;
+      let first = true;
+      const pending = captcha.waitFor({ until: async p => {
+        const accepted = await p.evaluate(() => document.querySelector("#application-status").dataset.accepted === "true");
+        if (first) { first = false; enter(); await gate; }
+        return accepted;
+      }, timeoutMs: 5000, pollMs: 1 }).then(value => { settled = true; return value; });
+      await entered;
+      assert.equal(settled, false, "input receipt is not acceptance");
+      await page.evaluate(() => window.accept());
+      release();
+      result.acceptance = await pending;
+      assert.equal(result.acceptance.outcome, "matched");
+      result.denied = await captcha.waitFor({ until: p => p.evaluate(() => false), timeoutMs: 20, pollMs: 1 });
+      assert.equal(result.denied.outcome, "timed_out");
+      const controller = new AbortController();
+      controller.abort();
+      result.cancelled = await captcha.waitFor({ until: () => { throw Error("pre-abort predicate ran"); }, signal: controller.signal });
+      assert.equal(result.cancelled.outcome, "cancelled");
+      if (evidenceDir) writeFileSync(path.join(evidenceDir, "after.png"), await page.screenshot({ type: "png" }));
     } else {
       throw new Error(`Unknown scenario: ${scenario}`);
     }
@@ -101,7 +132,11 @@ export async function runScenario(scenario, evidenceDir) {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const scenario = process.argv[process.argv.indexOf("--scenario") + 1] ?? "targeting";
-  await runScenario(scenario, process.env.CAPTCHA_EVIDENCE_DIR);
+  const flag = process.argv.indexOf("--scenario");
+  const scenario = flag < 0 ? "all" : process.argv[flag + 1];
+  for (const name of scenario === "all" ? ["targeting", "completion"] : [scenario]) {
+    const dir = process.env.CAPTCHA_EVIDENCE_DIR;
+    await runScenario(name, dir && (scenario === "all" ? path.join(dir, name) : dir));
+  }
   console.log(`PASS ${scenario}`);
 }
