@@ -33,12 +33,26 @@ running Chromium DevTools endpoint).
   `doubleClick`, `drag({path})`, `move`, `scroll`, `type`, `keypress`,
   `getVisibleScreenshot()` (base64 PNG). Use only when refs/locators cannot
   target the UI (canvas, custom controls, stale refs).
-- `createCaptcha(page, { ocr? })` — captcha helpers: `click(bounds)`,
-  `drag(from, to, {steps})`, `readText(bounds?)`. `click`/`drag` return a
-  compact snapshot tree after a settle wait (default 3s, `settleMs` to tune).
-  `readText` OCRs a screenshot region — defaults to macOS Vision
-  (`macOSVisionOcr`); pass `ocr: async (pngBuffer) => string` on other
-  platforms or to use a vision model.
+- `createCaptcha(page, { ocr? })` — input, OCR, and explicit condition helpers,
+  not a general CAPTCHA solver. `click(bounds, opts?)` defaults to the center;
+  optional `opts.point` is an absolute top-level viewport CSS-pixel point inside
+  the bounds. Positive integer `opts.approachSteps` adds intermediate movement,
+  not a human-likeness guarantee. Re-measure after scrolling/resizing; iframe
+  bounds alone do not locate a checkbox. `drag(from, to, {steps?, settleMs?})`
+  defaults to 20 steps. Both return a compact snapshot tree string after
+  settling (`settleMs` defaults to 3000ms, allows 0), not proof of acceptance.
+  `waitFor({until, timeoutMs = 10000, pollMs = 100, signal?})` separately returns
+  `{outcome: "matched" | "timed_out" | "cancelled", elapsedMs}`, with no tree.
+  Use `click(bounds, {settleMs: 0})`, then an application-specific acceptance
+  predicate: only literal `true` matches. Checks are serial under one deadline;
+  abort takes priority over timeout, then match. Predicate errors propagate;
+  cancellation cannot retract dispatched input/requests or interrupt blocking
+  synchronous code. Take `page.screenshot()` separately for visual evidence.
+  `readText(bounds?)` OCRs a screenshot region and returns text or `null`, never
+  a tree. It defaults to macOS Vision (`macOSVisionOcr`); pass
+  `ocr: async (pngBuffer) => string` on other platforms or to use a vision model.
+  Full bounds, timing, cancellation, and acceptance examples:
+  [CAPTCHA skill](presets/captcha/SKILL.md).
 - `createChromeApi(connection, { profilePath?, downloadDir? })` — Chrome
   MV3-shaped APIs: `tabs.query/get`, `windows.get/getCurrent/getLastFocused/
   getAll`, `bookmarks.*` (read-only), `history.search/getVisits`,
