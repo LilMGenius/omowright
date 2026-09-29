@@ -160,8 +160,9 @@ TASK: Get past the CAPTCHA blocking <url> and return the post-solve state.
 4. createCaptcha(page) - click(bounds) for checkbox widgets, drag(from, to,
    {steps}) for sliders, readText(bounds) for text (macOS Vision OCR default).
    Image grids: page.annotatedScreenshot() + cua.click per cell.
-5. VERIFY with a fresh compactSnapshot that the challenge is gone. Two failures
-   of one strategy select the next strategy; do not repeat a third time.
+5. VERIFY with captcha.waitFor({ until }) on an application acceptance condition;
+   only outcome "matched" counts, a snapshot is not proof. Two failures of one
+   strategy select the next strategy; do not repeat a third time.
 STOP WHEN the page is past the challenge, or all strategies are exhausted -
 then report which failed and the browser-log evidence.
 DELIVERABLE: post-solve snapshot tree + screenshot path.`)
