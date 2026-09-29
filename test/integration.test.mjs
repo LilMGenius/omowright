@@ -4,6 +4,7 @@ import { mkdtempSync, rmSync, existsSync, globSync, readdirSync, readlinkSync, r
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
+import { createServer } from "node:http";
 import { connectPipe, compactSnapshot, createAgentTabs } from "../src/index.js";
 
 function findHeadlessShell() {
@@ -18,6 +19,19 @@ function findHeadlessShell() {
 }
 
 const SHELL = process.env.SHELL_BIN ?? findHeadlessShell();
+
+const FIXTURE_PAGE = "<!doctype html><title>Example Domain</title><main><h1>Example Domain</h1>"
+  + "<p>A local page for the pipe transport test, with enough text for the content readiness probe.</p>"
+  + "<a href=\"#more\">More information</a></main>";
+
+async function serveFixturePage() {
+  const server = createServer((_request, response) => {
+    response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+    response.end(FIXTURE_PAGE);
+  });
+  await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
+  return { server, url: `http://127.0.0.1:${server.address().port}/` };
+}
 
 // Linux reads /proc directly (lsof is often absent there); elsewhere lsof exits 1 when nothing matches.
 function listeningTcpSockets(pid) {
@@ -48,6 +62,7 @@ function listeningTcpSockets(pid) {
 
 test("pipe transport drives Chromium with zero listening TCP ports", { skip: !SHELL && "no chromium binary found", timeout: 60000 }, async () => {
   const ud = mkdtempSync(path.join(tmpdir(), "omowright-test-"));
+  const fixture = await serveFixturePage();
   const connection = await connectPipe({
     browserPath: SHELL,
     browserArgs: ["--headless", "--no-first-run", `--user-data-dir=${ud}`],
@@ -60,12 +75,12 @@ test("pipe transport drives Chromium with zero listening TCP ports", { skip: !SH
     assert.deepEqual(listeningTcpSockets(pid), [], "browser must not listen on any TCP port");
 
     const page = (await createAgentTabs(connection).create("about:blank")).page;
-    await page.goto("https://example.com");
+    await page.goto(fixture.url);
     assert.equal(await page.title(), "Example Domain");
     // goto() resolves on the content probe; the committed URL lands with the main-frame
     // navigation event, which can trail the probe under load. Wait for that state.
-    await page.waitForURL("https://example.com/", { timeout: 10_000 });
-    assert.equal(page.url(), "https://example.com/");
+    await page.waitForURL(fixture.url, { timeout: 10_000 });
+    assert.equal(page.url(), fixture.url);
 
     const snapshot = await page.snapshot();
     const tree = compactSnapshot(snapshot);
@@ -80,6 +95,7 @@ test("pipe transport drives Chromium with zero listening TCP ports", { skip: !SH
     assert.equal(typeof locator.click, "function");
   } finally {
     await connection.close();
+    await new Promise(resolve => fixture.server.close(resolve));
     rmSync(ud, { recursive: true, force: true });
   }
 });

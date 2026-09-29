@@ -53,7 +53,7 @@ async function withPage(fn) {
   }
 }
 
-test("bskSnapshot through a main-world Runtime.evaluate leaves no global and no DOM mutation, and its css paths resolve", { timeout: 60_000 }, async () => {
+test("bskSnapshot through a main-world Runtime.evaluate leaves no global and no DOM mutation, and its css paths resolve", { skip: !SHELL && "no chromium binary found", timeout: 60_000 }, async () => {
   await withPage(async ({ mainWorldEvaluate }) => {
     const settled = await mainWorldEvaluate("({ count: window.__fixtureMutations, log: window.__fixtureMutationLog })");
     assert.ok(Array.isArray(settled.value.log), "fixture observer is armed");
