@@ -3,9 +3,28 @@ import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { compactSnapshot } from "./llm.js";
+import { waitForCaptcha } from "./captcha-wait.js";
 
 const DEFAULT_DRAG_STEPS = 20;
 const POST_ACTION_SETTLE_MS = 3000;
+
+function validatePoint(point) {
+  if (!Number.isFinite(point?.x) || !Number.isFinite(point?.y)) {
+    throw new TypeError("point coordinates must be finite numbers");
+  }
+}
+
+function validateSteps(steps) {
+  if (!Number.isSafeInteger(steps) || steps <= 0) {
+    throw new RangeError("steps must be a positive safe integer");
+  }
+}
+
+function validateSettleMs(value) {
+  if (!Number.isFinite(value) || value < 0 || value > 2147483647) {
+    throw new RangeError("settleMs must be between 0 and 2147483647");
+  }
+}
 
 const MACOS_VISION_OCR_SWIFT = `
 import Vision
@@ -59,6 +78,12 @@ export function createCaptcha(page, options = {}) {
   const ocr = options.ocr ?? macOSVisionOcr;
 
   function centerOf(bounds) {
+    validatePoint(bounds);
+    if (!Number.isFinite(bounds.width) || bounds.width <= 0
+      || !Number.isFinite(bounds.height) || bounds.height <= 0
+      || !Number.isFinite(bounds.x + bounds.width) || !Number.isFinite(bounds.y + bounds.height)) {
+      throw new RangeError("bounds must have positive finite dimensions and finite edges");
+    }
     return { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
   }
 
@@ -70,14 +95,35 @@ export function createCaptcha(page, options = {}) {
   return {
     page,
 
+    waitFor(opts) {
+      return waitForCaptcha(page, opts);
+    },
+
     async click(bounds, opts = {}) {
-      const point = centerOf(bounds);
+      const center = centerOf(bounds);
+      const point = opts.point === undefined ? center : opts.point;
+      validatePoint(point);
+      if (point.x < bounds.x || point.x >= bounds.x + bounds.width
+        || point.y < bounds.y || point.y >= bounds.y + bounds.height) {
+        throw new RangeError("point must be inside bounds");
+      }
+      const settleMs = opts.settleMs === undefined ? POST_ACTION_SETTLE_MS : opts.settleMs;
+      validateSettleMs(settleMs);
+      if (opts.approachSteps !== undefined) {
+        validateSteps(opts.approachSteps);
+        await page.mouse.move(point.x, point.y, { steps: opts.approachSteps });
+      }
       await page.mouse.click(point.x, point.y);
-      return settleAndSnapshot(opts.settleMs ?? POST_ACTION_SETTLE_MS);
+      return settleAndSnapshot(settleMs);
     },
 
     async drag(from, to, opts = {}) {
-      const steps = opts.steps ?? DEFAULT_DRAG_STEPS;
+      validatePoint(from);
+      validatePoint(to);
+      const steps = opts.steps === undefined ? DEFAULT_DRAG_STEPS : opts.steps;
+      validateSteps(steps);
+      const settleMs = opts.settleMs === undefined ? POST_ACTION_SETTLE_MS : opts.settleMs;
+      validateSettleMs(settleMs);
       await page.mouse.move(from.x, from.y);
       await page.mouse.down();
       try {
@@ -85,7 +131,7 @@ export function createCaptcha(page, options = {}) {
       } finally {
         await page.mouse.up();
       }
-      return settleAndSnapshot(opts.settleMs ?? POST_ACTION_SETTLE_MS);
+      return settleAndSnapshot(settleMs);
     },
 
     async readText(bounds) {
