@@ -5,6 +5,8 @@ import { mkdtempSync, writeFileSync, readFileSync, statSync, rmSync, mkdirSync, 
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { createNativeMessagingHost, encodeFrame, decodeFrames, installNativeMessagingHost, ExtensionHelloSchema, EventSchema, ResponseSchema, createChromeApi, BridgeProtocolError } from "../src/index.js";
+import { COMMAND_NAMES, EVENT_NAMES } from "../src/bridge-transport.js";
+import vm from "node:vm";
 
 const extensionId = "a".repeat(32);
 const hello = { protocol: 1, type: "hello", role: "extension", connectionId: "c1", extensionId, extensionVersion: "0.1.0", events: ["tabs.activated"], commands: ["bookmarks.create"], maxMessageBytes: 1024 * 1024 };
@@ -126,14 +128,36 @@ test("settled mutations remove abort listeners and timers", async () => {
   assert.equal(removed, 1); controller.abort(); assert.equal(host.isConnected, true); host.close();
 });
 
-test("extension protocol errors use a dedicated response name and reconnect indefinitely", () => {
-  const source = readFileSync(new URL("../bridge/extension/background.js", import.meta.url), "utf8");
-  assert.match(source, /PROTOCOL_ERROR_NAME = [\"']protocolError[\"']/); assert.doesNotMatch(source, /COMMANDS\.includes\(name\) \? name : COMMANDS\[0\]/); assert.match(source, /retries = 0/); assert.doesNotMatch(source, /retries >= 6\) return/); assert.match(source, /retries >= 6/);
+function loadExtension() {
+  const ports = []; const timers = [];
+  const listenerSlot = () => { const listeners = []; return { listeners, addListener: fn => listeners.push(fn) }; };
+  const apiEvents = new Proxy({}, { get: (target, name) => (target[name] ??= listenerSlot()) });
+  const chrome = {
+    runtime: { id: extensionId, lastError: undefined, getManifest: () => ({ version: "0.1.0" }), connectNative: () => { const port = { posted: [], onMessage: listenerSlot(), onDisconnect: listenerSlot(), postMessage(message) { this.posted.push(message); } }; ports.push(port); return port; } },
+    notifications: apiEvents, tabGroups: apiEvents, tabs: apiEvents, windows: apiEvents, bookmarks: {}, history: {}, debugger: {},
+  };
+  const context = vm.createContext({ chrome, crypto: globalThis.crypto, TextEncoder, URL, console: { warn() {} }, setTimeout: (fn, delay) => { timers.push({ fn, delay }); return timers.length; }, clearTimeout() {} });
+  vm.runInContext(readFileSync(new URL("../bridge/extension/background.js", import.meta.url), "utf8"), context);
+  return { ports, timers };
+}
+
+test("extension protocol errors use a dedicated response name and reconnect indefinitely", async () => {
+  const { ports, timers } = loadExtension();
+  // the hello advertises exactly the host's command and event lists
+  assert.deepEqual([...ports[0].posted[0].commands], [...COMMAND_NAMES]); assert.deepEqual([...ports[0].posted[0].events], [...EVENT_NAMES]);
+  // an unknown command is answered under the dedicated protocolError name, never a real command name
+  await ports[0].onMessage.listeners[0]({ protocol: 1, type: "command", requestId: "abcdef0123456789", name: "bogus.command", params: { details: {} } });
+  const reply = JSON.parse(JSON.stringify(ports[0].posted.at(-1)));
+  assert.equal(reply.name, "protocolError"); assert.equal(reply.ok, false); assert.equal(ResponseSchema.safeParse(reply).success, true);
+  // disconnects keep reconnecting past the sixth attempt, at a capped backoff
+  for (let attempt = 0; attempt < 8; attempt += 1) { ports.at(-1).onDisconnect.listeners[0](); timers.at(-1).fn(); }
+  assert.equal(ports.length, 9);
+  assert.deepEqual(timers.map(timer => timer.delay), [1000, 2000, 4000, 8000, 16000, 30000, 30000, 30000]);
 });
 
 test("protocolError responses are schema-valid and cannot collide with commands", () => {
   const response = { protocol: 1, type: "response", requestId: "abcdef0123456789", name: "protocolError", ok: false, error: { code: "UNKNOWN_COMMAND", message: "invalid command" } };
-  assert.equal(ResponseSchema.safeParse(response).success, true); assert.equal(ResponseSchema.safeParse({ ...response, ok: true, error: undefined, result: {} }).success, false); assert.equal(["bookmarks.create", "bookmarks.move", "bookmarks.remove", "history.deleteUrl", "history.deleteRange", "tabGroups.update", "debugger.attach", "debugger.detach"].includes(response.name), false);
+  assert.equal(ResponseSchema.safeParse(response).success, true); assert.equal(ResponseSchema.safeParse({ ...response, ok: true, error: undefined, result: {} }).success, false); assert.equal(COMMAND_NAMES.includes("protocolError"), false);
 });
 
 test("registration rejects symlinked executables and parent components", async () => {

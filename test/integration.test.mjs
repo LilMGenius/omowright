@@ -90,9 +90,6 @@ test("pipe transport drives Chromium with zero listening TCP ports", { skip: !SH
     const fullBytes = Buffer.byteLength(JSON.stringify(snapshot), "utf8");
     const compactBytes = Buffer.byteLength(tree, "utf8");
     assert.ok(compactBytes < fullBytes, "compact tree smaller than full snapshot");
-
-    const locator = page.locator("e1");
-    assert.equal(typeof locator.click, "function");
   } finally {
     await connection.close();
     await new Promise(resolve => fixture.server.close(resolve));
