@@ -11,7 +11,10 @@ import path from "node:path";
 export async function startFakeBskDaemon({ handlers = {}, delayMs = 0 } = {}) {
   const home = mkdtempSync(path.join(tmpdir(), "fake-bsk-home-"));
   mkdirSync(path.join(home, "run"));
-  const sockPath = path.join(home, "run", "daemon.sock");
+  // The real daemon publishes a named pipe on Windows, where a socket file under tmpdir cannot be listened on.
+  const sockPath = process.platform === "win32"
+    ? "\\\\.\\pipe\\" + path.basename(home)
+    : path.join(home, "run", "daemon.sock");
   const requests = [];
   const sockets = new Set();
 

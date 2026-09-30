@@ -39,9 +39,6 @@ export class BskIpcClient {
 
   async resolveSocket({ isAborted = () => false } = {}) {
     if (this.#sockPath) return this.#sockPath;
-    if (process.platform === "win32") {
-      throw new BskRpcError("unsupported", "Windows named-pipe discovery is not implemented; pass { sockPath: '\\\\\\\\.\\\\pipe\\\\...' } explicitly");
-    }
     const found = readDaemonInfo(this.#home);
     if (found) return found.sock_path;
     if (!this.#autoStart) {
