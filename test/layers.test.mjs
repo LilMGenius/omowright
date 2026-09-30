@@ -136,11 +136,7 @@ test("describeLayers and snapshotWithLayers classify live overlays", { skip: !SH
 
     await page.goto(fixtures.urlFor("layers-toast.html"));
     const toastLayers = await describeLayers(page);
-    assert.equal(toastLayers.blocking, null);
-    assert.ok(
-      toastLayers.blocking == null || toastLayers.blocking.coverage < 0.1,
-      `toast must not block (coverage=${toastLayers.blocking?.coverage})`,
-    );
+    assert.equal(toastLayers.blocking, null, "a toast must not register as a blocking layer");
   } finally {
     await cleanup();
     await fixtures.close();

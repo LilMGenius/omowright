@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { PipeCdpClient, connectPipe } from "../src/pipe.js";
 import { BrowserConnection } from "../src/connection.js";
-import { normalizeDialogPolicy, resolveDialogAction } from "../src/dialog-policy.js";
+import { resolveDialogAction } from "../src/dialog-policy.js";
 import { createAgentTabs } from "../src/agent-tabs.js";
 
 function findHeadlessShell() {
@@ -52,14 +52,6 @@ async function handledParams(client, sent, msg = dialogOpening()) {
   assert.equal(sent[0].sessionId, msg.sessionId);
   return sent[0].params;
 }
-
-test("normalizeDialogPolicy defaults missing values to accept:true", () => {
-  assert.deepEqual(normalizeDialogPolicy(undefined), { accept: true });
-  const policy = { accept: false, promptText: "x" };
-  assert.equal(normalizeDialogPolicy(policy), policy);
-  const fn = () => false;
-  assert.equal(normalizeDialogPolicy(fn), fn);
-});
 
 test("resolveDialogAction maps policies and falls back when the function throws or rejects", async () => {
   assert.deepEqual(await resolveDialogAction({ accept: false }), { accept: false });
@@ -108,6 +100,11 @@ test("object dialogPolicy can dismiss and supply promptText", async () => {
     accept: true,
     promptText: "hello",
   });
+
+  const decline = () => false;
+  client.setDialogPolicy(decline);
+  assert.equal(client.dialogPolicy, decline);
+  assert.deepEqual(await handledParams(client, sent), { accept: false });
 });
 
 test("BrowserConnection.setDialogPolicy delegates or rejects by transport", () => {

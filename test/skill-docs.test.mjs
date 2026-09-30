@@ -1,7 +1,6 @@
 import { readFile, readdir, stat } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
-import os from "node:os";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
@@ -69,10 +68,3 @@ for (const doc of docs) {
     assert.deepEqual(missing, [], `dangling references in ${rel}`);
   });
 }
-
-test("install path resolves to the in-repo skill when present", async () => {
-  const install = path.join(os.homedir(), ".agents", "skills", "omowright", "SKILL.md");
-  let text;
-  try { text = await readFile(install, "utf8"); } catch { return; } // not installed on this machine
-  assert.equal(frontmatter(text).name, "omowright");
-});

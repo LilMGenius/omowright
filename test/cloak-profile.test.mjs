@@ -16,8 +16,6 @@ test("resolveCloakProfile creates and reuses a fixed fingerprint seed", async ()
   const profileDir = mkdtempSync(path.join(tmpdir(), "omowright-cloak-profile-"));
 
   try {
-    assert.equal(typeof omowright.resolveCloakProfile, "function");
-
     const first = await omowright.resolveCloakProfile({
       profileDir,
       randomSeed: () => 31415,
