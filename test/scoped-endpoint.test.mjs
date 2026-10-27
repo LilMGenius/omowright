@@ -151,7 +151,7 @@ test("the page API runs through an endpoint that allows only OMOWRIGHT_PAGE_CDP_
     upstream.child.kill();
     await exited;
     site.close();
-    rmSync(userDataDir, { recursive: true, force: true });
+    rmSync(userDataDir, { recursive: true, force: true, maxRetries: 10 });
   }
 });
 

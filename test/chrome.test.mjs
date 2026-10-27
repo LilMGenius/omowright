@@ -103,7 +103,7 @@ test("chrome.tabs and chrome.windows expose CDP target and window state", { skip
     assert.equal(single.id, wins[0].id);
   } finally {
     await connection.close();
-    rmSync(ud, { recursive: true, force: true });
+    rmSync(ud, { recursive: true, force: true, maxRetries: 10 });
   }
 });
 
@@ -151,8 +151,8 @@ test("chrome.bookmarks, history, and topSites read real Chrome profile formats",
     assert.equal(dls[0].url, "https://files.example.com/old-file.zip");
   } finally {
     await connection.close();
-    rmSync(ud, { recursive: true, force: true });
-    rmSync(profileRoot, { recursive: true, force: true });
+    rmSync(ud, { recursive: true, force: true, maxRetries: 10 });
+    rmSync(profileRoot, { recursive: true, force: true, maxRetries: 10 });
   }
 });
 
@@ -184,8 +184,8 @@ test("chrome.downloads.download saves a file through a real server", { skip: !SH
   } finally {
     await connection.close();
     server.close();
-    rmSync(ud, { recursive: true, force: true });
-    rmSync(downloadDir, { recursive: true, force: true });
+    rmSync(ud, { recursive: true, force: true, maxRetries: 10 });
+    rmSync(downloadDir, { recursive: true, force: true, maxRetries: 10 });
   }
 });
 
@@ -204,6 +204,6 @@ test("extension-bridge-only chrome methods throw UnsupportedOperationError", { s
     await assert.rejects(() => chrome.bookmarks.getTree(), UnsupportedOperationError);
   } finally {
     await connection.close();
-    rmSync(ud, { recursive: true, force: true });
+    rmSync(ud, { recursive: true, force: true, maxRetries: 10 });
   }
 });

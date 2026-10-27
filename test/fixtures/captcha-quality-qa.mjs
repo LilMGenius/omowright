@@ -123,7 +123,7 @@ export async function runScenario(scenario, evidenceDir) {
     throw error;
   } finally {
     if (browser) await browser.close();
-    rmSync(profile, { recursive: true, force: true });
+    rmSync(profile, { recursive: true, force: true, maxRetries: 10 });
     if (evidenceDir) {
       writeFileSync(path.join(evidenceDir, "surface.json"), JSON.stringify(result, null, 2));
       writeFileSync(path.join(evidenceDir, "cleanup.json"), JSON.stringify({ browserClosed: Boolean(browser), profileRemoved: !existsSync(profile), profile }, null, 2));

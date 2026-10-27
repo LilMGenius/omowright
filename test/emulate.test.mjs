@@ -207,7 +207,7 @@ test("emulate(page, 'iphone-14') live test", { skip: !SHELL && "no chromium bina
     await page.close();
   } finally {
     if (connection) await connection.close();
-    rmSync(ud, { recursive: true, force: true });
+    rmSync(ud, { recursive: true, force: true, maxRetries: 10 });
   }
 });
 
@@ -244,6 +244,6 @@ test("emulate(page, null) live restore test", { skip: !SHELL && "no chromium bin
     await page.close();
   } finally {
     if (connection) await connection.close();
-    rmSync(ud, { recursive: true, force: true });
+    rmSync(ud, { recursive: true, force: true, maxRetries: 10 });
   }
 });

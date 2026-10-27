@@ -20,7 +20,7 @@ async function withSmokeServer(run) {
     await run({ profileDir, url: `http://127.0.0.1:${server.address().port}/` });
   } finally {
     await new Promise((resolve) => server.close(resolve));
-    rmSync(profileDir, { recursive: true, force: true });
+    rmSync(profileDir, { recursive: true, force: true, maxRetries: 10 });
   }
 }
 

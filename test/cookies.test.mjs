@@ -62,6 +62,6 @@ test("injectCookies sets cookies reachable on navigation", { skip: !SHELL && "no
     assert.ok(cookieHeader.includes("__Host-pinned=yes"), `host-pinned cookie visible: ${cookieHeader}`);
   } finally {
     await connection.close();
-    rmSync(ud, { recursive: true, force: true });
+    rmSync(ud, { recursive: true, force: true, maxRetries: 10 });
   }
 });

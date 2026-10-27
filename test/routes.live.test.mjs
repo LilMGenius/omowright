@@ -84,7 +84,7 @@ test("live abort of png fires img onerror", { skip: !SHELL && "no chromium binar
     await routes.dispose();
   } finally {
     await connection.close();
-    rmSync(ud, { recursive: true, force: true });
+    rmSync(ud, { recursive: true, force: true, maxRetries: 10 });
     await new Promise(resolve => server.close(resolve));
   }
 });
@@ -110,7 +110,7 @@ test("live fulfill mocks /api/x json even when the server returns 404", { skip: 
     await routes.dispose();
   } finally {
     await connection.close();
-    rmSync(ud, { recursive: true, force: true });
+    rmSync(ud, { recursive: true, force: true, maxRetries: 10 });
     await new Promise(resolve => server.close(resolve));
   }
 });

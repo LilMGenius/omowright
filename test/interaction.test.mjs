@@ -55,7 +55,7 @@ async function launch() {
     browserArgs: ["--headless", "--no-first-run", `--user-data-dir=${ud}`],
     storageRoot: ud,
   });
-  return { connection, cleanup: async () => { await connection.close(); rmSync(ud, { recursive: true, force: true }); } };
+  return { connection, cleanup: async () => { await connection.close(); rmSync(ud, { recursive: true, force: true, maxRetries: 10 }); } };
 }
 
 async function boundsOf(page, selector) {

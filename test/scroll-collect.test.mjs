@@ -65,7 +65,7 @@ test(
     } finally {
       snoop?.dispose();
       await connection?.close();
-      rmSync(userDataDir, { recursive: true, force: true });
+      rmSync(userDataDir, { recursive: true, force: true, maxRetries: 10 });
       await server.close();
     }
   },
