@@ -80,8 +80,8 @@ test(
       assert.ok(lines.some(line => line.kind === "network" && line.url === `${server.url}api/click`), "click traffic is captured");
     } finally {
       await connection?.close();
-      rmSync(userDataDir, { recursive: true, force: true });
-      rmSync(traceDir, { recursive: true, force: true });
+      rmSync(userDataDir, { recursive: true, force: true, maxRetries: 10 });
+      rmSync(traceDir, { recursive: true, force: true, maxRetries: 10 });
       await server.close();
     }
   },

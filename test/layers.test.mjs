@@ -61,7 +61,7 @@ async function launch() {
     connection,
     cleanup: async () => {
       await connection.close();
-      rmSync(ud, { recursive: true, force: true });
+      rmSync(ud, { recursive: true, force: true, maxRetries: 10 });
     },
   };
 }

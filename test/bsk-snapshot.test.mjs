@@ -49,7 +49,7 @@ async function withPage(fn) {
     await fn({ page, mainWorldEvaluate });
   } finally {
     await browser.close();
-    rmSync(profile, { recursive: true, force: true });
+    rmSync(profile, { recursive: true, force: true, maxRetries: 10 });
   }
 }
 

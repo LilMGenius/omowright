@@ -93,7 +93,7 @@ test("pipe transport drives Chromium with zero listening TCP ports", { skip: !SH
   } finally {
     await connection.close();
     await new Promise(resolve => fixture.server.close(resolve));
-    rmSync(ud, { recursive: true, force: true });
+    rmSync(ud, { recursive: true, force: true, maxRetries: 10 });
   }
 });
 
@@ -124,6 +124,6 @@ test("JavaScript dialogs are auto-accepted and surfaced as events", { skip: !SHE
     assert.equal(await page.evaluate("document.readyState"), "complete");
   } finally {
     await connection.close();
-    rmSync(ud, { recursive: true, force: true });
+    rmSync(ud, { recursive: true, force: true, maxRetries: 10 });
   }
 });

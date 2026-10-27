@@ -26,5 +26,5 @@ test("pipe event bridge creates and closes an owned background page", { skip: !B
     assert.ok(openedPayload.url === "about:blank" || openedPayload.url === "", `unexpected initial URL: ${openedPayload.url}`);
     const closed = events.waitForEvent("tabClosed", { timeout: 10000, predicate: value => value.targetId === tab.targetId });
     await tabs.close(tab); assert.equal((await closed).targetId, tab.targetId);
-  } finally { await events.dispose(); await tabs.dispose({ closeOwned: false }); await connection.close(); rmSync(profile, { recursive: true, force: true }); }
+  } finally { await events.dispose(); await tabs.dispose({ closeOwned: false }); await connection.close(); rmSync(profile, { recursive: true, force: true, maxRetries: 10 }); }
 });

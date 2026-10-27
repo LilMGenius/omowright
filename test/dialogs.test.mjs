@@ -157,7 +157,7 @@ test("live dialogPolicy dismisses confirm, fills prompt, and still emits dialog"
     assert.equal(await prompted, "hello");
   } finally {
     await connection.close();
-    rmSync(ud, { recursive: true, force: true });
+    rmSync(ud, { recursive: true, force: true, maxRetries: 10 });
   }
 });
 
@@ -204,6 +204,6 @@ test("live connect() honours dialogPolicy over WebSocket", {
     const exited = browser.exitCode === null ? once(browser, "exit") : Promise.resolve();
     browser.kill();
     await exited;
-    rmSync(ud, { recursive: true, force: true });
+    rmSync(ud, { recursive: true, force: true, maxRetries: 10 });
   }
 });
