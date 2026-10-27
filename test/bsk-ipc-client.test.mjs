@@ -4,11 +4,17 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { startFakeBskDaemon } from "./fixtures/fake-bsk-daemon.mjs";
-import { BskIpcClient, BskRpcError, readDaemonInfo, resolveBskHome } from "../src/bsk/ipc-client.js";
+import { BskIpcClient, BskRpcError, defaultSocketPath, readDaemonInfo, resolveBskHome } from "../src/bsk/ipc-client.js";
 
 test("resolveBskHome prefers BSK_HOME and falls back to ~/.bsk", () => {
   assert.equal(resolveBskHome({ BSK_HOME: "/x/y", HOME: "/h" }), "/x/y");
   assert.equal(resolveBskHome({ BSK_HOME: "", HOME: "/h" }), path.join("/h", ".bsk"));
+});
+
+// Cross-language contract with bsk's render_pipe_name (crates/bsk-cli/src/daemon/paths.rs): the expected
+// name was printed by rustc 1.98.1 hashing the same USERNAME and home with DefaultHasher.
+test("on Windows the orphan probe looks for the pipe name bsk itself derives", { skip: process.platform !== "win32" }, () => {
+  assert.equal(defaultSocketPath("D:\\bsk home\\Tom&Jerry", { USERNAME: "z'z'f'l'g'y" }), "\\\\.\\pipe\\bsk-daemon-0ccd2b13b4e4a041");
 });
 
 test("readDaemonInfo parses daemon.json and rejects a missing one", async () => {
