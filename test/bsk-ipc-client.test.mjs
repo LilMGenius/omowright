@@ -207,6 +207,31 @@ test("with auto-start disabled a live daemon without daemon.json is still found 
   } finally { await daemon.close(); }
 });
 
+// Protocol/platform contract: daemon.json survives a daemon that was killed (a host closing the job it ran in),
+// and the socket it names then answers nothing; the client must start a daemon instead of failing on that socket.
+test("a daemon.json left by a daemon that no longer runs starts a new daemon instead of failing on its socket", async () => {
+  const { spawnSync } = await import("node:child_process");
+  const { copyFileSync, writeFileSync } = await import("node:fs");
+  const deadPid = spawnSync(process.execPath, ["-e", ""]).pid;
+  const daemon = await startFakeBskDaemon();
+  const home = mkdtempSync(path.join(tmpdir(), "bsk-dead-"));
+  const staleSock = process.platform === "win32" ? "\\\\.\\pipe\\" + path.basename(home) : path.join(home, "run", "daemon.sock");
+  writeFileSync(path.join(home, "daemon.json"), JSON.stringify({ pid: deadPid, sock_path: staleSock, ws_port: 52800, version: "0.3.0-fake" }));
+  let starts = 0;
+  try {
+    const client = new BskIpcClient({
+      home,
+      autoStart: true,
+      startDaemon: async () => {
+        starts += 1;
+        copyFileSync(path.join(daemon.home, "daemon.json"), path.join(home, "daemon.json"));
+      },
+    });
+    assert.deepEqual(await client.call("system.ping", {}), { pong: true });
+    assert.equal(starts, 1);
+  } finally { await daemon.close(); rmSync(home, { recursive: true, force: true }); }
+});
+
 test("a tool call's own timeoutMs extends the IPC wait, so a long evaluate is not cut short (omo#10217)", async () => {
   const daemon = await startFakeBskDaemon({ handlers: { "tool.evaluate": () => ({ result: { ok: true, value: 1 } }) }, delayMs: 300 });
   try {

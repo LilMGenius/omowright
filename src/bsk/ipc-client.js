@@ -58,6 +58,19 @@ export class BskRpcError extends Error {
 function shortId() { return randomBytes(6).toString("hex"); }
 function sleep(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
 
+// daemon.json outlives a daemon that was killed, as when a host closes the job it ran in; its pid then
+// names no process and its socket answers nothing, so it counts as absent and a new daemon is started.
+function liveDaemonInfo(home) {
+  const info = readDaemonInfo(home);
+  if (!info || !Number.isInteger(info.pid)) return info;
+  try {
+    process.kill(info.pid, 0);
+    return info;
+  } catch (error) {
+    return error.code === "EPERM" ? info : null;
+  }
+}
+
 export class BskIpcClient {
   #home; #sockPath; #autoStart; #startDaemon; #timeoutMs; #starting = null;
 
@@ -73,7 +86,7 @@ export class BskIpcClient {
 
   async resolveSocket({ isAborted = () => false } = {}) {
     if (this.#sockPath) return this.#sockPath;
-    const found = readDaemonInfo(this.#home);
+    const found = liveDaemonInfo(this.#home);
     if (found) return found.sock_path;
     // daemon.json can vanish while the daemon keeps running; starting another one then fails on the held port.
     const orphan = defaultSocketPath(this.#home);
@@ -89,7 +102,7 @@ export class BskIpcClient {
     await this.#starting;
     const deadline = Date.now() + DISCOVERY_BUDGET_MS;
     while (Date.now() < deadline && !isAborted()) {
-      const info = readDaemonInfo(this.#home);
+      const info = liveDaemonInfo(this.#home);
       if (info) return info.sock_path;
       await sleep(DISCOVERY_RETRY_MS);
     }
